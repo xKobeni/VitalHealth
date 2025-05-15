@@ -7,12 +7,13 @@ CREATE TABLE users (
 );
 
 CREATE TABLE doctors (
-    doctor_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    specialization VARCHAR(100),
+    doctor_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT,
+    full_name VARCHAR(100),
+    department VARCHAR(100),
     contact_number VARCHAR(20),
-    FOREIGN KEY(user_id) REFERENCES users(user_id)
+    address VARCHAR(255),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
 CREATE TABLE patients (

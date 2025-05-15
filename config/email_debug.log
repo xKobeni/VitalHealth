@@ -1,0 +1,187 @@
+
+
+=== New Email Attempt ===
+Time: 2025-05-11 14:01:44
+To: vovowa5825@bamsrad.com
+Subject: Appointment Confirmed - VitalHealth
+Message: Dear sample,
+
+Your appointment has been confirmed for May 12, 2025 at 02:00 PM.
+
+Please arrive 15 minutes before your scheduled time.
+
+Best regards,
+VitalHealth Team
+Headers: Array
+(
+    [0] => MIME-Version: 1.0
+    [1] => Content-type: text/html; charset=UTF-8
+    [2] => From: VitalHealth <noreply@vitalhealth.com>
+    [3] => Reply-To: noreply@vitalhealth.com
+    [4] => X-Mailer: PHP/8.2.12
+)
+
+
+PHP Mail Configuration:
+mail() function exists: Yes
+SMTP server: localhost
+SMTP port: 25
+sendmail_path: 
+sendmail_from: 
+
+Attempting to send email...
+Email send result: Failed
+
+PHP Errors:
+Array
+(
+    [type] => 2
+    [message] => mail(): Failed to connect to mailserver at &quot;localhost&quot; port 25, verify your &quot;SMTP&quot; and &quot;smtp_port&quot; setting in php.ini or use ini_set()
+    [file] => C:\xampp\htdocs\Healthcare\config\functions.php
+    [line] => 93
+)
+{
+    "timestamp": "2025-05-11 14:05:00",
+    "to": "hecehax368@bamsrad.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "php_mail_config": {
+        "mail_function_exists": true,
+        "smtp_server": "localhost",
+        "smtp_port": "25",
+        "sendmail_path": "",
+        "sendmail_from": ""
+    },
+    "result": "Failed",
+    "error": {
+        "type": 2,
+        "message": "mail(): Failed to connect to mailserver at &quot;localhost&quot; port 25, verify your &quot;SMTP&quot; and &quot;smtp_port&quot; setting in php.ini or use ini_set()",
+        "file": "C:\\xampp\\htdocs\\Healthcare\\config\\functions.php",
+        "line": 88
+    }
+}
+{
+    "timestamp": "2025-05-11 14:48:27",
+    "to": "nawicek756@daupload.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-11 15:43:33",
+    "to": "nawicek756@daupload.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-12 02:40:50",
+    "to": "kinat71313@hazhab.com",
+    "subject": "Appointment Update - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-12 02:48:24",
+    "to": "kinat71313@hazhab.com",
+    "subject": "Appointment Update - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-12 03:01:04",
+    "to": "kinat71313@hazhab.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-12 05:44:07",
+    "to": "jobigi7528@deusa7.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-12 06:26:58",
+    "to": "yotawoj214@jazipo.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-13 05:31:39",
+    "to": "xolapa1972@neuraxo.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-13 06:21:45",
+    "to": "xolapa1972@neuraxo.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-13 11:12:42",
+    "to": "libex29894@hazhab.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-15 05:56:00",
+    "to": "vidop66706@magpit.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-15 06:15:50",
+    "to": "rocanim807@inkight.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-15 13:30:51",
+    "to": "sagoxej338@daupload.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-15 14:25:26",
+    "to": "sagoxej338@daupload.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-15 14:30:05",
+    "to": "sagoxej338@daupload.com",
+    "subject": "Appointment Confirmed - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-15 16:42:21",
+    "to": "sagoxej338@daupload.com",
+    "subject": "Appointment Cancelled - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-15 17:10:49",
+    "to": "rocanim807@inkight.com",
+    "subject": "Appointment Cancelled - VitalHealth",
+    "result": "Success",
+    "error": null
+}
+{
+    "timestamp": "2025-05-15 17:11:13",
+    "to": "vidop66706@magpit.com",
+    "subject": "Appointment Cancelled - VitalHealth",
+    "result": "Success",
+    "error": null
+}

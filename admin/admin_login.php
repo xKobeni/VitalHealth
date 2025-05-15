@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 
 <body>
-    <div class="min-h-screen flex items-center justify-center bg-gray-50">
+    <div class="min-h-screen flex items-center justify-center bg-sky-100">
         <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-xl">
             <i class="fas fa-user-shield text-blue-500 text-4xl block text-center mb-2"></i>
             <h1 class="text-2xl font-bold text-center mb-2">Admin Login</h1>

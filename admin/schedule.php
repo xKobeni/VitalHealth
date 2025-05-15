@@ -4,7 +4,7 @@ require_once '../config/database.php';
 checkAdminSession();
 
 // Get all doctors
-$doctors_query = "SELECT doctor_id, full_name, specialization FROM doctors ORDER BY full_name";
+$doctors_query = "SELECT doctor_id, full_name, department FROM doctors ORDER BY full_name";
 $doctors_result = $conn->query($doctors_query);
 
 $selected_doctor_id = isset($_GET['doctor_id']) ? (int)$_GET['doctor_id'] : null;
@@ -56,7 +56,7 @@ if ($selected_doctor_id) {
                             <option value="">Select a Doctor</option>
                             <?php $doctors_result->data_seek(0); while ($doctor = $doctors_result->fetch_assoc()): ?>
                                 <option value="<?php echo $doctor['doctor_id']; ?>" <?php echo $selected_doctor_id == $doctor['doctor_id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($doctor['full_name'] . ' (' . $doctor['specialization'] . ')'); ?>
+                                    <?php echo htmlspecialchars($doctor['full_name'] . ' (' . $doctor['department'] . ')'); ?>
                                 </option>
                             <?php endwhile; ?>
                         </select>

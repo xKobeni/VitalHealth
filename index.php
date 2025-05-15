@@ -4,35 +4,39 @@ include 'config/database.php';
 
 <?php
 if (isset($_POST['submit'])) {
-    $email = $_POST['email'];
+    $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
     $password = $_POST['password'];
-    $sql = "SELECT * FROM users WHERE email = '$email' AND password = '$password'";
-    $result = mysqli_query($conn, $sql);
+    
+    // Get user with email
+    $sql = "SELECT * FROM users WHERE email = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-    if (mysqli_num_rows($result) === 1) {
-
-        $logged_in = mysqli_fetch_assoc($result);
-
-        if ($logged_in['role'] == 'patient') {
+    if ($result->num_rows === 1) {
+        $logged_in = $result->fetch_assoc();
+        
+        // Verify password
+        if (password_verify($password, $logged_in['password'])) {
             session_start();
             $_SESSION['userid'] = $logged_in['user_id'];
-            header('Location: /Healthcare/patientdashboard.php');
-        } else if ($logged_in['role'] == 'doctor') {
-            session_start();
-            $_SESSION['userid'] = $logged_in['user_id'];
-            header('Location: /Healthcare/doctordashboard.php');
+            
+            // Redirect based on role
+            if ($logged_in['role'] === 'patient') {
+                header('Location: /Healthcare/patient/patientdashboard.php');
+            } else if ($logged_in['role'] === 'doctor') {
+                header('Location: /Healthcare/doctor/doctordashboard.php');
+            } else {
+                $_SESSION['email'] = $email;
+                header('Location: /Healthcare/dashboard.php');
+            }
+            exit;
         } else {
-            session_start();
-            $email = filter_input(
-                INPUT_POST,
-                'email',
-                FILTER_SANITIZE_SPECIAL_CHARS
-            );
-            $_SESSION['email'] = $email;
-            header('Location: /Healthcare/dashboard.php');
+            $error = "Invalid email or password";
         }
     } else {
-        echo 'invalid login';
+        $error = "Invalid email or password";
     }
 }
 ?>
@@ -45,8 +49,27 @@ if (isset($_POST['submit'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-
-    <title>Document</title>
+    <title>Login - VitalHealth</title>
+    <style>
+        .toast {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 1rem; 
+            border-radius: 0.5rem;
+            background-color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transform: translateX(150%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 50;
+        }
+        .toast.show {
+            transform: translateX(0);
+        }
+        .toast.error {
+            border-left: 4px solid #ef4444;
+        }
+    </style>
 </head>
 
 <body>
@@ -55,15 +78,78 @@ if (isset($_POST['submit'])) {
             <i class="fas fa-heartbeat text-green-500 text-4xl"></i>
             <h1 class="text-3xl text-center font-semibold mb-3">Log in to your account</h1>
             <p class="text-center text-neutral-600 mb-4">Welcome! Please enter your credentials</p>
-            <form action="index.php" method="post">
-                <input type="text" name="email" class="mt-5 border border-neutral-300 w-full p-2 rounded-md" placeholder="Username">
-                <input type="password" name="password" class="mt-5 border border-neutral-300 w-full p-2 rounded-md" placeholder="Password">
-                <button type="submit" name="submit" class="text-center text-white border indigo-600 bg-green-600 w-full mt-10 p-2 rounded-md">Sign In</button>
-            </form>
-            <p class="text-center mt-3">Don't have an account? <a href="google.com" class="font-bold">Sign Up</a></p>
 
+            <?php if (isset($error)): ?>
+                <div id="errorToast" class="toast error">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+                        <span><?= htmlspecialchars($error) ?></span>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <form action="index.php" method="post">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="email">Email</label>
+                    <input type="email" name="email" id="email" required
+                    class="border border-neutral-300 w-full p-2 rounded-md" placeholder="Enter your email">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="password">Password</label>
+                    <div class="relative">
+                        <input type="password" name="password" id="password" required
+                        class="border border-neutral-300 w-full p-2 rounded-md" placeholder="Enter your password">
+                        <button type="button" onclick="togglePassword()" 
+                                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-eye" id="toggleIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" name="submit" 
+                        class="text-center text-white border indigo-600 bg-green-600 w-full p-2 rounded-md hover:bg-green-700 transition-colors">
+                    Sign In
+                </button>
+            </form>
+            <p class="text-center mt-4">
+                Don't have an account? <a href="signup.php" class="text-green-600 font-semibold hover:text-green-700">Sign Up</a>
+            </p>
         </div>
     </div>
+
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+
+        // Toast notification functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const toast = document.getElementById('errorToast');
+            if (toast) {
+                // Show toast
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 100);
+
+                // Hide toast after 5 seconds
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 5000);
+            }
+        });
+    </script>
 </body>
 
 </html>

@@ -37,13 +37,11 @@ $stmt->execute();
 $daily_stats = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Get doctor statistics
-$doctor_stats_query = "SELECT d.full_name, d.specialization,
-                      COUNT(a.appointment_id) as total_appointments,
-                      SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) as completed_appointments,
-                      SUM(CASE WHEN a.status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_appointments
+$doctor_stats_query = "SELECT d.full_name, d.department,
+                      COUNT(DISTINCT a.appointment_id) as total_appointments,
+                      COUNT(DISTINCT CASE WHEN a.status = 'completed' THEN a.appointment_id END) as completed_appointments
                       FROM doctors d
-                      LEFT JOIN appointments a ON d.doctor_id = a.doctor_id 
-                      AND a.appointment_date BETWEEN ? AND ?
+                      LEFT JOIN appointments a ON d.doctor_id = a.doctor_id
                       GROUP BY d.doctor_id
                       ORDER BY total_appointments DESC";
 $stmt = $conn->prepare($doctor_stats_query);
@@ -148,11 +146,10 @@ $doctor_stats = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Doctor</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specialization</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Appointments</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completed</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cancelled</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completion Rate</th>
                             </tr>
                         </thead>
@@ -163,16 +160,13 @@ $doctor_stats = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($stat['full_name']); ?></div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900"><?php echo htmlspecialchars($stat['specialization']); ?></div>
+                                    <div class="text-sm text-gray-900"><?php echo htmlspecialchars($stat['department']); ?></div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900"><?php echo $stat['total_appointments']; ?></div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900"><?php echo $stat['completed_appointments']; ?></div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900"><?php echo $stat['cancelled_appointments']; ?></div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <?php 
