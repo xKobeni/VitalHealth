@@ -11,32 +11,87 @@ if (!isset($_SESSION['userid'])) {
 
 $patientid = $_GET['patientid'];
 $appointmentid = $_GET['appointmentid'];
+$is_guest = isset($_GET['is_guest']) && $_GET['is_guest'] === '1';
 
 // Get patient information
-$sql = "SELECT p.*, u.email 
-        FROM patients p 
-        JOIN users u ON p.user_id = u.user_id 
-        WHERE p.patient_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $patientid);
-$stmt->execute();
-$result = $stmt->get_result();
-$patient = $result->fetch_assoc();
+if ($is_guest) {
+    // Get guest appointment information
+    $sql = "SELECT * FROM guest_appointments WHERE guest_appointment_id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $appointmentid);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $appointment = $result->fetch_assoc();
+    
+    if ($appointment) {
+        $patient = [
+            'full_name' => $appointment['full_name'],
+            'email' => $appointment['email'],
+            'phone_number' => $appointment['phone_number']
+        ];
+        
+        // Find the patient ID using the guest's email
+        $find_patient_sql = "SELECT p.patient_id 
+                            FROM patients p 
+                            JOIN users u ON p.user_id = u.user_id 
+                            WHERE u.email = ?";
+        $find_patient_stmt = $conn->prepare($find_patient_sql);
+        $find_patient_stmt->bind_param("s", $appointment['email']);
+        $find_patient_stmt->execute();
+        $patient_result = $find_patient_stmt->get_result();
+        
+        if ($patient_result->num_rows > 0) {
+            $patient_data = $patient_result->fetch_assoc();
+            // Get medical history for the found patient ID
+            $sql = "SELECT * FROM medical_history WHERE patient_id = ? ORDER BY record_date DESC";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("i", $patient_data['patient_id']);
+            $stmt->execute();
+            $medical_history = $stmt->get_result();
+        } else {
+            $medical_history = [];
+        }
+    } else {
+        header("Location: appointments.php?error=1");
+        exit;
+    }
+} else {
+    // Get regular patient information
+    $sql = "SELECT p.*, u.email 
+            FROM patients p 
+            JOIN users u ON p.user_id = u.user_id 
+            WHERE p.patient_id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $patientid);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $patient = $result->fetch_assoc();
 
-// Get appointment information
-$sql = "SELECT * FROM appointments WHERE appointment_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $appointmentid);
-$stmt->execute();
-$result = $stmt->get_result();
-$appointment = $result->fetch_assoc();
+    if (!$patient) {
+        header("Location: appointments.php?error=1");
+        exit;
+    }
 
-// Get medical history
-$sql = "SELECT * FROM medical_history WHERE patient_id = ? ORDER BY record_date DESC";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $patientid);
-$stmt->execute();
-$medical_history = $stmt->get_result();
+    // Get regular appointment information
+    $sql = "SELECT * FROM appointments WHERE appointment_id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $appointmentid);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $appointment = $result->fetch_assoc();
+
+    if (!$appointment) {
+        header("Location: appointments.php?error=1");
+        exit;
+    }
+
+    // Get medical history for regular patients
+    $sql = "SELECT * FROM medical_history WHERE patient_id = ? ORDER BY record_date DESC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $patientid);
+    $stmt->execute();
+    $medical_history = $stmt->get_result();
+}
 ?>
 
 <!DOCTYPE html>
@@ -80,21 +135,27 @@ $medical_history = $stmt->get_result();
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <p class="text-gray-600"><span class="font-medium">Name:</span> <?php echo htmlspecialchars($patient['full_name']); ?></p>
-                            <p class="text-gray-600"><span class="font-medium">Date of Birth:</span> <?php echo htmlspecialchars($patient['date_of_birth']); ?></p>
-                            <p class="text-gray-600"><span class="font-medium">Gender:</span> <?php echo htmlspecialchars($patient['gender']); ?></p>
-                            <p class="text-gray-600"><span class="font-medium">Email:</span> <?php echo htmlspecialchars($patient['email']); ?></p>
+                            <?php if (!$is_guest): ?>
+                                <p class="text-gray-600"><span class="font-medium">Date of Birth:</span> <?php echo htmlspecialchars($patient['date_of_birth']); ?></p>
+                                <p class="text-gray-600"><span class="font-medium">Gender:</span> <?php echo htmlspecialchars($patient['gender']); ?></p>
+                                <p class="text-gray-600"><span class="font-medium">Email:</span> <?php echo htmlspecialchars($patient['email']); ?></p>
+                            <?php else: ?>
+                                <p class="text-gray-600"><span class="font-medium">Email:</span> <?php echo htmlspecialchars($patient['email']); ?></p>
+                            <?php endif; ?>
                         </div>
                         <div>
-                            <p class="text-gray-600"><span class="font-medium">Contact:</span> <?php echo htmlspecialchars($patient['contact_number']); ?></p>
-                            <p class="text-gray-600"><span class="font-medium">Address:</span> <?php echo htmlspecialchars($patient['address']); ?></p>
-                            <p class="text-gray-600"><span class="font-medium">Age:</span> 
-                                <?php 
-                                    $dob = new DateTime($patient['date_of_birth']);
-                                    $now = new DateTime();
-                                    $age = $now->diff($dob)->y;
-                                    echo $age . ' years old';
-                                ?>
-                            </p>
+                            <p class="text-gray-600"><span class="font-medium">Contact:</span> <?php echo htmlspecialchars($is_guest ? $patient['phone_number'] : $patient['contact_number']); ?></p>
+                            <?php if (!$is_guest): ?>
+                                <p class="text-gray-600"><span class="font-medium">Address:</span> <?php echo htmlspecialchars($patient['address']); ?></p>
+                                <p class="text-gray-600"><span class="font-medium">Age:</span> 
+                                    <?php 
+                                        $dob = new DateTime($patient['date_of_birth']);
+                                        $now = new DateTime();
+                                        $age = $now->diff($dob)->y;
+                                        echo $age . ' years old';
+                                    ?>
+                                </p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -103,6 +164,7 @@ $medical_history = $stmt->get_result();
                 <form action="saveassessment.php" method="POST" class="space-y-6" onsubmit="return validateForm()">
                     <input type="hidden" name="patient_id" value="<?php echo htmlspecialchars($patientid); ?>">
                     <input type="hidden" name="appointment_id" value="<?php echo htmlspecialchars($appointmentid); ?>">
+                    <input type="hidden" name="is_guest" value="<?php echo $is_guest ? '1' : '0'; ?>">
 
                     <div>
                         <label class="block text-gray-700 font-medium mb-2">Assessment <span class="text-red-500">*</span></label>
@@ -141,17 +203,20 @@ $medical_history = $stmt->get_result();
                 <div class="mt-8">
                     <h2 class="text-xl font-semibold text-gray-700 mb-4">Medical History</h2>
                     <div class="space-y-4">
-                        <?php while ($history = $medical_history->fetch_assoc()): ?>
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-gray-600"><span class="font-medium">Date:</span> <?php echo date('F j, Y', strtotime($history['record_date'])); ?></p>
-                            <p class="text-gray-600"><span class="font-medium">Diagnosis:</span> <?php echo htmlspecialchars($history['diagnosis']); ?></p>
-                            <p class="text-gray-600"><span class="font-medium">Treatment:</span> <?php echo htmlspecialchars($history['treatment_plan']); ?></p>
-                            <p class="text-gray-600"><span class="font-medium">Prescription:</span> <?php echo htmlspecialchars($history['prescription']); ?></p>
-                            <?php if (!empty($history['notes'])): ?>
-                            <p class="text-gray-600"><span class="font-medium">Notes:</span> <?php echo htmlspecialchars($history['notes']); ?></p>
-                            <?php endif; ?>
-                        </div>
-                        <?php endwhile; ?>
+                        <?php if ($is_guest && empty($medical_history)): ?>
+                            <p class="text-gray-600">No medical history available for this patient.</p>
+                        <?php else: ?>
+                            <?php while ($history = $medical_history->fetch_assoc()): ?>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="text-gray-600"><span class="font-medium">Date:</span> <?php echo date('F j, Y', strtotime($history['record_date'])); ?></p>
+                                    <p class="text-gray-600"><span class="font-medium">Assessment:</span> <?php echo htmlspecialchars($history['assessment']); ?></p>
+                                    <p class="text-gray-600"><span class="font-medium">Medication:</span> <?php echo htmlspecialchars($history['medication']); ?></p>
+                                    <?php if (!empty($history['notes'])): ?>
+                                    <p class="text-gray-600"><span class="font-medium">Notes:</span> <?php echo htmlspecialchars($history['notes']); ?></p>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endwhile; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

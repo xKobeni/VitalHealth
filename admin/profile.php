@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $full_name = trim($_POST['full_name']);
         $contact_number = trim($_POST['contact_number']);
         $email = trim($_POST['email']);
-        
+
         $conn->begin_transaction();
         try {
             $update_user = "UPDATE users SET email = ? WHERE user_id = ?";
@@ -55,12 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("i", $admin_id);
         $stmt->execute();
         $result = $stmt->get_result()->fetch_assoc();
-        if ($result && password_verify($current_password, $result['password'])) {
+        if ($result && $current_password === $result['password']) {
             if ($new_password === $confirm_password) {
-                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
                 $update_password = "UPDATE users SET password = ? WHERE user_id = ?";
                 $stmt = $conn->prepare($update_password);
-                $stmt->bind_param("si", $hashed_password, $admin_id);
+                $stmt->bind_param("si", $new_password, $admin_id);
                 if ($stmt->execute()) {
                     $success_message = "Password changed successfully!";
                 } else {
@@ -77,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -84,58 +84,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
+
 <body class="bg-gray-50">
     <?php include 'navbar.php'; ?>
     <?php include 'sidebar.php'; ?>
-    
+
     <main class="ml-64 p-8">
         <div class="max-w-4xl mx-auto">
             <h1 class="text-2xl font-bold text-gray-800 mb-6">Your Account</h1>
             <?php if ($success_message): ?>
-            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <span class="block sm:inline"><?php echo $success_message; ?></span>
-            </div>
+                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <span class="block sm:inline"><?php echo $success_message; ?></span>
+                </div>
             <?php endif; ?>
             <?php if ($error_message): ?>
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <span class="block sm:inline"><?php echo $error_message; ?></span>
-            </div>
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <span class="block sm:inline"><?php echo $error_message; ?></span>
+                </div>
             <?php endif; ?>
             <?php if (!$admin): ?>
-            <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <span class="block sm:inline">Admin profile not found. Please contact support.</span>
-            </div>
+                <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <span class="block sm:inline">Admin profile not found. Please contact support.</span>
+                </div>
             <?php endif; ?>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Profile Information -->
+                <!-- Profile Information (Read-only) -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">Profile Information</h2>
                     <form method="POST" action="">
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Full Name</label>
-                                <input type="text" name="full_name" value="<?php echo htmlspecialchars($admin['full_name'] ?? ($_SESSION['admin_name'] ?? '')); ?>" 
-                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <input type="text" name="full_name" value="<?php echo htmlspecialchars($admin['full_name'] ?? ($_SESSION['admin_name'] ?? '')); ?>"
+                                    readonly class="bg-gray-100 mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Email</label>
-                                <input type="email" name="email" value="<?php echo htmlspecialchars($admin['email'] ?? ($_SESSION['admin_email'] ?? '')); ?>" 
-                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <input type="email" name="email" value="<?php echo htmlspecialchars($admin['email'] ?? ($_SESSION['admin_email'] ?? '')); ?>"
+                                    readonly class="bg-gray-100 mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Contact Number</label>
-                                <input type="tel" name="contact_number" value="<?php echo htmlspecialchars($admin['contact_number'] ?? ''); ?>" 
-                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                            </div>
-                            <div>
-                                <button type="submit" name="update_profile" 
-                                        class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                                    Update Profile
-                                </button>
+                                <input type="tel" name="contact_number" value="<?php echo htmlspecialchars($admin['contact_number'] ?? ''); ?>"
+                                    readonly class="bg-gray-100 mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3">
                             </div>
                         </div>
                     </form>
                 </div>
+
                 <!-- Change Password -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">Change Password</h2>
@@ -143,22 +139,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Current Password</label>
-                                <input type="password" name="current_password" required
-                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <div class="relative">
+                                    <input type="password" name="current_password" id="current_password"
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3" required>
+                                    <span onclick="togglePassword('current_password')" class="material-icons absolute right-3 top-2.5 text-gray-500 cursor-pointer">visibility</span>
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">New Password</label>
-                                <input type="password" name="new_password" required
-                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <div class="relative">
+                                    <input type="password" name="new_password" id="new_password"
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3" required>
+                                    <span onclick="togglePassword('new_password')" class="material-icons absolute right-3 top-2.5 text-gray-500 cursor-pointer">visibility</span>
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Confirm New Password</label>
-                                <input type="password" name="confirm_password" required
-                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <div class="relative">
+                                    <input type="password" name="confirm_password" id="confirm_password"
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3" required>
+                                    <span onclick="togglePassword('confirm_password')" class="material-icons absolute right-3 top-2.5 text-gray-500 cursor-pointer">visibility</span>
+                                </div>
                             </div>
                             <div>
-                                <button type="submit" name="change_password" 
-                                        class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                                <button type="submit" name="change_password"
+                                    class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
                                     Change Password
                                 </button>
                             </div>
@@ -168,5 +173,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </main>
+
+    <script>
+        function togglePassword(fieldId) {
+            const input = document.getElementById(fieldId);
+            const icon = input.nextElementSibling;
+            if (input.type === "password") {
+                input.type = "text";
+                icon.textContent = "visibility_off";
+            } else {
+                input.type = "password";
+                icon.textContent = "visibility";
+            }
+        }
+    </script>
 </body>
-</html> 
+
+</html>

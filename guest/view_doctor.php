@@ -14,7 +14,7 @@ $doctor_id = $_GET['id'];
 $sql = "SELECT d.*, u.email 
         FROM doctors d 
         JOIN users u ON d.user_id = u.user_id 
-        WHERE d.doctor_id = ?";
+        WHERE d.doctor_id = ? AND d.is_active = 1";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $doctor_id);
 $stmt->execute();

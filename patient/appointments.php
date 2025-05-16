@@ -136,7 +136,7 @@ $guest_appointments = $guest_result->fetch_all(MYSQLI_ASSOC);
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <?php foreach ($appointments as $row): ?>
-                                <tr class="appointment-row">
+                                <tr class="appointment-row" id="appointment-<?php echo $row['appointment_id']; ?>">
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm font-medium text-gray-900">Dr. <?php echo htmlspecialchars($row['doctor_name']); ?></div>
                                         <div class="text-sm text-gray-500"><?php echo htmlspecialchars($row['department']); ?></div>
@@ -160,6 +160,9 @@ $guest_appointments = $guest_result->fetch_all(MYSQLI_ASSOC);
                                             case 'cancelled':
                                                 $statusClass = 'bg-red-100 text-red-800';
                                                 break;
+                                            case 'completed':
+                                                $statusClass = 'bg-blue-100 text-blue-800';
+                                                break;
                                             default:
                                                 $statusClass = 'bg-gray-100 text-gray-800';
                                         }
@@ -170,16 +173,25 @@ $guest_appointments = $guest_result->fetch_all(MYSQLI_ASSOC);
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <?php if ($row['status'] === 'pending'): ?>
-                                            <a href="cancelappointment.php?id=<?php echo $row['appointment_id']; ?>" 
-                                               class="text-red-600 hover:text-red-900"
-                                               onclick="return confirm('Are you sure you want to cancel this appointment?')">
+                                            <button onclick="cancelPendingAppointment(<?php echo $row['appointment_id']; ?>)" 
+                                                    class="text-red-600 hover:text-red-900">
                                                 Cancel
-                                            </a>
+                                            </button>
+                                        <?php elseif ($row['status'] === 'scheduled'): ?>
+                                            <button onclick="openCancelModal(<?php echo $row['appointment_id']; ?>)" 
+                                                    class="text-red-600 hover:text-red-900">
+                                                Cancel
+                                            </button>
                                         <?php elseif ($row['status'] === 'cancelled' && !empty($row['cancellation_remark'])): ?>
                                             <button onclick="showCancellationRemark('<?php echo htmlspecialchars($row['cancellation_remark']); ?>')" 
                                                     class="text-blue-600 hover:text-blue-900">
                                                 View Remark
                                             </button>
+                                        <?php elseif ($row['status'] === 'completed'): ?>
+                                            <a href="medical-history.php?appointment_id=<?php echo $row['appointment_id']; ?>" 
+                                               class="text-blue-600 hover:text-blue-900">
+                                                View Results
+                                            </a>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -209,6 +221,9 @@ $guest_appointments = $guest_result->fetch_all(MYSQLI_ASSOC);
                                             case 'cancelled':
                                                 $statusClass = 'bg-red-100 text-red-800';
                                                 break;
+                                            case 'completed':
+                                                $statusClass = 'bg-blue-100 text-blue-800';
+                                                break;
                                             default:
                                                 $statusClass = 'bg-gray-100 text-gray-800';
                                         }
@@ -237,16 +252,43 @@ $guest_appointments = $guest_result->fetch_all(MYSQLI_ASSOC);
         </div>
     </div>
 
-    <!-- Cancellation Remark Modal -->
+    <!-- Cancel Appointment Modal -->
+    <div id="cancelModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Cancel Appointment</h3>
+                <form id="cancelForm" onsubmit="submitCancellation(event)">
+                    <input type="hidden" id="appointmentId" name="appointmentId">
+                    <div class="mb-4">
+                        <label for="reason" class="block text-sm font-medium text-gray-700">Reason for Cancellation</label>
+                        <textarea id="reason" name="reason" rows="4" 
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                  required></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeCancelModal()"
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">
+                            Confirm Cancellation
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Remark Modal -->
     <div id="remarkModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Cancellation Remark</h3>
-                <div class="mt-2 px-7 py-3">
-                    <p id="remarkText" class="text-sm text-gray-500"></p>
-                </div>
-                <div class="items-center px-4 py-3">
-                    <button id="closeModal" class="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Cancellation Reason</h3>
+                <p id="remarkText" class="text-gray-700"></p>
+                <div class="mt-4 flex justify-end">
+                    <button onclick="closeRemarkModal()"
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
                         Close
                     </button>
                 </div>
@@ -278,25 +320,97 @@ $guest_appointments = $guest_result->fetch_all(MYSQLI_ASSOC);
         searchInput.addEventListener('input', filterAppointments);
         statusFilter.addEventListener('change', filterAppointments);
 
-        // Modal functionality
-        function showCancellationRemark(remark) {
-            const modal = document.getElementById('remarkModal');
-            const remarkText = document.getElementById('remarkText');
-            remarkText.textContent = remark;
-            modal.classList.remove('hidden');
+        function openCancelModal(appointmentId) {
+            document.getElementById('appointmentId').value = appointmentId;
+            document.getElementById('cancelModal').classList.remove('hidden');
         }
 
-        document.getElementById('closeModal').addEventListener('click', function() {
-            document.getElementById('remarkModal').classList.add('hidden');
-        });
+        function closeCancelModal() {
+            document.getElementById('cancelModal').classList.add('hidden');
+            document.getElementById('cancelForm').reset();
+        }
 
-        // Close modal when clicking outside
-        window.addEventListener('click', function(event) {
-            const modal = document.getElementById('remarkModal');
-            if (event.target === modal) {
-                modal.classList.add('hidden');
+        function showCancellationRemark(remark) {
+            document.getElementById('remarkText').textContent = remark;
+            document.getElementById('remarkModal').classList.remove('hidden');
+        }
+
+        function closeRemarkModal() {
+            document.getElementById('remarkModal').classList.add('hidden');
+        }
+
+        function cancelPendingAppointment(appointmentId) {
+            if (confirm('Are you sure you want to cancel this appointment?')) {
+                const formData = new FormData();
+                formData.append('appointmentId', appointmentId);
+                formData.append('reason', 'Cancelled by patient');
+                
+                fetch('cancelappointment.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const appointmentRow = document.getElementById(`appointment-${appointmentId}`);
+                        const statusCell = appointmentRow.querySelector('td:nth-child(4) span');
+                        const actionCell = appointmentRow.querySelector('td:nth-child(5)');
+                        
+                        // Update status
+                        statusCell.className = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
+                        statusCell.textContent = 'Cancelled';
+                        
+                        // Update action button
+                        actionCell.innerHTML = `<button onclick="showCancellationRemark('${data.remark}')" 
+                                                       class="text-blue-600 hover:text-blue-900">
+                                            View Remark
+                                           </button>`;
+                    } else {
+                        alert(data.error || 'Failed to cancel appointment');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while cancelling the appointment');
+                });
             }
-        });
+        }
+
+        function submitCancellation(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            
+            fetch('cancelappointment.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const appointmentRow = document.getElementById(`appointment-${formData.get('appointmentId')}`);
+                    const statusCell = appointmentRow.querySelector('td:nth-child(4) span');
+                    const actionCell = appointmentRow.querySelector('td:nth-child(5)');
+                    
+                    // Update status
+                    statusCell.className = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
+                    statusCell.textContent = 'Cancelled';
+                    
+                    // Update action button
+                    actionCell.innerHTML = `<button onclick="showCancellationRemark('${data.remark}')" 
+                                                   class="text-blue-600 hover:text-blue-900">
+                                        View Remark
+                                       </button>`;
+                    
+                    closeCancelModal();
+                } else {
+                    alert(data.error || 'Failed to cancel appointment');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while cancelling the appointment');
+            });
+        }
     </script>
 </body>
 </html>

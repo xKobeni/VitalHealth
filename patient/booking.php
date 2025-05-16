@@ -12,6 +12,7 @@ $patient_id = getPatientId($conn, $_SESSION['userid']);
 $sql = "SELECT d.doctor_id, d.full_name, d.department, d.contact_number, u.email
         FROM doctors d
         JOIN users u ON d.user_id = u.user_id
+        WHERE d.is_active = 1
         ORDER BY d.full_name";
 $result = $conn->query($sql);
 

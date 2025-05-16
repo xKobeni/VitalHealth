@@ -29,12 +29,16 @@ if ($selected_doctor_id) {
     $schedule_result = $stmt->get_result();
     $doctor_schedules = [];
     while ($row = $schedule_result->fetch_assoc()) {
-        $doctor_schedules[$row['day_of_week']][] = $row;
+        $day_num = array_search($row['day_of_week'], $days);
+        if ($day_num !== false) {
+            $doctor_schedules[$day_num][] = $row;
+        }
     }
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -42,6 +46,7 @@ if ($selected_doctor_id) {
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
+
 <body class="bg-gray-50">
     <?php include 'navbar.php'; ?>
     <?php include 'sidebar.php'; ?>
@@ -54,7 +59,8 @@ if ($selected_doctor_id) {
                         <label class="block text-sm font-medium text-gray-700 mb-2">Select Doctor</label>
                         <select name="doctor_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="">Select a Doctor</option>
-                            <?php $doctors_result->data_seek(0); while ($doctor = $doctors_result->fetch_assoc()): ?>
+                            <?php $doctors_result->data_seek(0);
+                            while ($doctor = $doctors_result->fetch_assoc()): ?>
                                 <option value="<?php echo $doctor['doctor_id']; ?>" <?php echo $selected_doctor_id == $doctor['doctor_id'] ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($doctor['full_name'] . ' (' . $doctor['department'] . ')'); ?>
                                 </option>
@@ -67,30 +73,44 @@ if ($selected_doctor_id) {
             <?php if ($selected_doctor_id): ?>
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">Weekly Schedule</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <?php foreach ($days as $day_num => $day_name): ?>
-                            <div>
-                                <h3 class="font-semibold text-blue-700 mb-2"><?php echo $day_name; ?></h3>
-                                <?php if (!empty($doctor_schedules[$day_num])): ?>
-                                    <ul class="space-y-2">
-                                        <?php foreach ($doctor_schedules[$day_num] as $slot): ?>
-                                            <li class="flex items-center gap-3 p-3 bg-gray-50 rounded shadow-sm">
-                                                <span class="material-icons text-green-500">event_available</span>
-                                                <span class="text-gray-700 font-medium">
-                                                    <?php echo date('h:i A', strtotime($slot['start_time'])); ?> - <?php echo date('h:i A', strtotime($slot['end_time'])); ?>
-                                                </span>
-                                            </li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                <?php else: ?>
-                                    <p class="text-gray-400 text-sm">No slots</p>
-                                <?php endif; ?>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
+
+                    <?php if (empty($doctor_schedules)): ?>
+                        <p class="text-center text-gray-500">No available schedules for this doctor.</p>
+                    <?php else: ?>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <?php foreach ($doctor_schedules as $day_num => $slots): ?>
+                                <div>
+                                    <h3 class="font-semibold text-blue-700 mb-2"><?= htmlspecialchars($days[$day_num]) ?></h3>
+                                    <?php if (empty($slots)): ?>
+                                        <p class="text-gray-400 text-sm">Day Off</p>
+                                    <?php else: ?>
+                                        <ul class="space-y-2">
+                                            <?php foreach ($slots as $slot): ?>
+                                                <?php
+                                                if (!empty($slot['start_time']) && !empty($slot['end_time'])):
+                                                    $start = DateTime::createFromFormat('H:i:s', $slot['start_time']);
+                                                    $end = DateTime::createFromFormat('H:i:s', $slot['end_time']);
+                                                ?>
+                                                    <li class="flex items-center gap-3 p-3 bg-gray-50 rounded shadow-sm">
+                                                        <span class="material-icons text-green-500">event_available</span>
+                                                        <span class="text-gray-700 font-medium">
+                                                            <?= $start->format('h:i A') . ' - ' . $end->format('h:i A'); ?>
+                                                        </span>
+                                                    </li>
+                                                <?php else: ?>
+                                                    <p class="text-gray-400 text-sm">No available slots</p>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         </div>
     </main>
 </body>
-</html> 
+
+</html>

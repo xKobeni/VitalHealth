@@ -90,45 +90,59 @@ $selected_day = isset($_GET['day']) ? $_GET['day'] : null;
 <body class="bg-sky-100 flex">
     <?php include 'doctor_sidebar.php'; ?>
 
-    <div class="flex-1 p-5">
-        <h1 class="font-semibold text-3xl mb-6">Add Schedule</h1>
+    <div class="flex-1 p-5 ml-64">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="font-semibold text-3xl">Add Schedule</h1>
+                <a href="doctorschedule.php" class="text-blue-600 hover:text-blue-800 flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Schedule
+                </a>
+            </div>
 
-        <div class="bg-white rounded-lg shadow-lg p-6 max-w-md">
-            <form method="POST" action="addschedule.php" class="space-y-4">
-                <div>
-                    <label for="day_of_week" class="block text-sm font-medium text-gray-700">Day of Week</label>
-                    <select name="day_of_week" id="day_of_week" required
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="">Select a day</option>
-                        <?php foreach ($days as $day_value => $day_name): ?>
-                            <option value="<?php echo $day_value; ?>" <?php echo $selected_day === $day_value ? 'selected' : ''; ?>>
-                                <?php echo $day_name; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <form method="POST" action="addschedule.php" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="day_of_week" class="block text-sm font-medium text-gray-700 mb-2">Day of Week</label>
+                            <select name="day_of_week" id="day_of_week" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                <option value="">Select a day</option>
+                                <?php foreach ($days as $day_value => $day_name): ?>
+                                    <option value="<?php echo $day_value; ?>" <?php echo $selected_day === $day_value ? 'selected' : ''; ?>>
+                                        <?php echo $day_name; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
 
-                <div>
-                    <label for="start_time" class="block text-sm font-medium text-gray-700">Start Time</label>
-                    <input type="time" id="start_time" name="start_time" required
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                </div>
+                        <div>
+                            <label for="start_time" class="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                            <input type="time" id="start_time" name="start_time" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                        </div>
 
-                <div>
-                    <label for="end_time" class="block text-sm font-medium text-gray-700">End Time</label>
-                    <input type="time" id="end_time" name="end_time" required
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                </div>
+                        <div>
+                            <label for="end_time" class="block text-sm font-medium text-gray-700 mb-2">End Time</label>
+                            <input type="time" id="end_time" name="end_time" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                        </div>
+                    </div>
 
-                <div class="flex gap-4 mt-6">
-                    <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-                        Add Schedule
-                    </button>
-                    <a href="doctorschedule.php" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 text-center">
-                        Cancel
-                    </a>
-                </div>
-            </form>
+                    <div class="flex gap-4 mt-8">
+                        <button type="submit" 
+                                class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-plus"></i>
+                            Add Schedule
+                        </button>
+                        <a href="doctorschedule.php" 
+                           class="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors text-center flex items-center justify-center gap-2">
+                            <i class="fas fa-times"></i>
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

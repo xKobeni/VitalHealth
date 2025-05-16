@@ -57,6 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['appointment_id']) && 
                 }
                 header("Location: appointments.php?error=1");
                 exit;
+            } else if ($action === 'complete') {
+                // For guest appointments, redirect to final assessment
+                header("Location: finalassessment.php?patientid=" . $appointment_id . "&appointmentid=" . $appointment_id . "&is_guest=1");
+                exit;
             } else {
                 // Handle other guest actions (approve/reject)
                 $redirect = "process_guest_approval.php?appointment_id=" . $appointment_id . "&action=" . $action;
@@ -76,8 +80,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['appointment_id']) && 
                     $status = 'cancelled';
                     break;
                 case 'complete':
-                    $status = 'completed';
-                    break;
+                    // For regular appointments, get the patient ID from the appointment
+                    $get_patient_sql = "SELECT patient_id FROM appointments WHERE appointment_id = ? AND doctor_id = ?";
+                    $get_patient_stmt = $conn->prepare($get_patient_sql);
+                    $get_patient_stmt->bind_param("ii", $appointment_id, $doctor_id);
+                    $get_patient_stmt->execute();
+                    $patient_result = $get_patient_stmt->get_result();
+                    $appointment_data = $patient_result->fetch_assoc();
+                    
+                    if ($appointment_data) {
+                        header("Location: finalassessment.php?patientid=" . $appointment_data['patient_id'] . "&appointmentid=" . $appointment_id . "&is_guest=0");
+                        exit;
+                    }
+                    header("Location: appointments.php?error=1");
+                    exit;
             }
             if (in_array($action, ['cancel', 'reject']) && $remark) {
                 $sql = "UPDATE appointments SET status = ?, remark = ? WHERE appointment_id = ? AND doctor_id = ?";
@@ -259,8 +275,8 @@ $error = isset($_GET['error']) ? $_GET['error'] : null;
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -270,134 +286,77 @@ $error = isset($_GET['error']) ? $_GET['error'] : null;
                             <?php foreach ($appointments as $appointment): ?>
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900">
-                                            <?php echo htmlspecialchars($appointment['patient_name']); ?>
-                                            <?php if ($appointment['appointment_type'] === 'guest'): ?>
-                                                <span class="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Guest</span>
-                                            <?php endif; ?>
-                                        </div>
-                                        <?php if ($appointment['email']): ?>
-                                            <div class="text-sm text-gray-500"><?php echo htmlspecialchars($appointment['email']); ?></div>
+                                        <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($appointment['patient_name']); ?></div>
+                                        <?php if ($appointment['appointment_type'] === 'guest'): ?>
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                Guest
+                                            </span>
                                         <?php endif; ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900">
-                                            <?php echo date('F j, Y', strtotime($appointment['appointment_date'])); ?>
-                                        </div>
-                                        <div class="text-sm text-gray-500">
-                                            <?php echo date('h:i A', strtotime($appointment['appointment_time'])); ?>
-                                        </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-900"><?php echo htmlspecialchars($appointment['contact_number']); ?></div>
+                                        <div class="text-sm text-gray-500"><?php echo htmlspecialchars($appointment['email']); ?></div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900">
-                                            <?php echo ucfirst($appointment['consultation_type']); ?> Consultation
-                                        </div>
+                                        <div class="text-sm text-gray-900"><?php echo date('F j, Y', strtotime($appointment['appointment_date'])); ?></div>
+                                        <div class="text-sm text-gray-500"><?php echo date('h:i A', strtotime($appointment['appointment_time'])); ?></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <?php echo htmlspecialchars($appointment['consultation_type']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <?php
-                                        $status_class = '';
-                                        $status_text = '';
+                                        $statusClass = '';
                                         switch ($appointment['status']) {
                                             case 'pending':
-                                                $status_class = 'bg-yellow-100 text-yellow-800';
-                                                $status_text = 'Pending';
+                                                $statusClass = 'bg-yellow-100 text-yellow-800';
                                                 break;
                                             case 'scheduled':
-                                                $status_class = 'bg-blue-100 text-blue-800';
-                                                $status_text = 'Scheduled';
-                                                break;
-                                            case 'confirmed':
-                                                $status_class = 'bg-green-100 text-green-800';
-                                                $status_text = 'scheduled';
-                                                break;
-                                            case 'rejected':
-                                                $status_class = 'bg-red-100 text-red-800';
-                                                $status_text = 'Rejected';
-                                                break;
-                                            case 'completed':
-                                                $status_class = 'bg-green-100 text-green-800';
-                                                $status_text = 'Completed';
+                                                $statusClass = 'bg-green-100 text-green-800';
                                                 break;
                                             case 'cancelled':
-                                                $status_class = 'bg-red-100 text-red-800';
-                                                $status_text = 'Cancelled';
+                                                $statusClass = 'bg-red-100 text-red-800';
+                                                break;
+                                            case 'completed':
+                                                $statusClass = 'bg-blue-100 text-blue-800';
                                                 break;
                                             default:
-                                                $status_class = 'bg-gray-100 text-gray-800';
-                                                $status_text = ucfirst($appointment['status']);
+                                                $statusClass = 'bg-gray-100 text-gray-800';
                                         }
                                         ?>
-                                        <span class="px-2 py-1 text-xs font-medium rounded-full <?php echo $status_class; ?>">
-                                            <?php echo $status_text; ?>
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $statusClass; ?>">
+                                            <?php echo ucfirst(htmlspecialchars($appointment['status'])); ?>
                                         </span>
-                                        <?php if ($appointment['appointment_type'] === 'guest'): ?>
-                                            <span class="ml-2 text-xs text-gray-500">(Guest)</span>
-                                        <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <?php if ($appointment['status'] === 'pending'): ?>
-                                            <?php if ($appointment['appointment_type'] === 'guest'): ?>
-                                                <form method="POST" action="process_guest_approval.php" class="inline">
-                                                    <input type="hidden" name="appointment_id" value="<?php echo $appointment['appointment_id']; ?>">
-                                                    <input type="hidden" name="action" value="approve">
-                                                    <button type="submit" class="text-green-600 hover:text-green-900 mr-3">
-                                                        <i class="fas fa-check-circle"></i> Approve
-                                                    </button>
-                                                </form>
-                                                <form method="POST" action="process_guest_approval.php" class="inline">
-                                                    <input type="hidden" name="appointment_id" value="<?php echo $appointment['appointment_id']; ?>">
-                                                    <input type="hidden" name="action" value="reject">
-                                                    <button type="submit" class="text-red-600 hover:text-red-900">
-                                                        <i class="fas fa-times-circle"></i> Reject
-                                                    </button>
-                                                </form>
-                                            <?php else: ?>
-                                                <form method="POST" class="inline">
-                                                    <input type="hidden" name="appointment_id" value="<?php echo $appointment['appointment_id']; ?>">
-                                                    <input type="hidden" name="action" value="approve">
-                                                    <button type="submit" class="text-green-600 hover:text-green-900 mr-3">
-                                                        <i class="fas fa-check-circle"></i> Approve
-                                                    </button>
-                                                </form>
-                                                <form method="POST" class="inline">
-                                                    <input type="hidden" name="appointment_id" value="<?php echo $appointment['appointment_id']; ?>">
-                                                    <input type="hidden" name="action" value="reject">
-                                                    <button type="submit" class="text-red-600 hover:text-red-900">
-                                                        <i class="fas fa-times-circle"></i> Reject
-                                                    </button>
-                                                </form>
-                                            <?php endif; ?>
-                                        <?php elseif ($appointment['status'] === 'scheduled' || $appointment['status'] === 'confirmed'): ?>
-                                            <?php if ($appointment['appointment_type'] === 'guest'): ?>
-                                                <form method="POST" class="inline">
-                                                    <input type="hidden" name="appointment_id" value="<?php echo $appointment['appointment_id']; ?>">
-                                                    <input type="hidden" name="action" value="cancel">
-                                                    <input type="hidden" name="is_guest" value="true">
-                                                    <input type="hidden" name="remark" value="">
-                                                    <button type="button" class="text-red-600 hover:text-red-900 open-remark-modal" data-action="cancel">
-                                                        <i class="fas fa-ban"></i> Cancel
-                                                    </button>
-                                                </form>
-                                            <?php else: ?>
-                                                <form method="POST" class="inline">
-                                                    <input type="hidden" name="appointment_id" value="<?php echo $appointment['appointment_id']; ?>">
-                                                    <input type="hidden" name="action" value="cancel">
-                                                    <input type="hidden" name="remark" value="">
-                                                    <button type="button" class="text-red-600 hover:text-red-900 open-remark-modal" data-action="cancel">
-                                                        <i class="fas fa-ban"></i> Cancel
-                                                    </button>
-                                                </form>
-                                                <form action="finalassessment.php" method="GET" class="inline">
-                                                    <input type="hidden" name="patientid" value="<?php echo $appointment['patient_id']; ?>">
-                                                    <input type="hidden" name="appointmentid" value="<?php echo $appointment['appointment_id']; ?>">
-                                                    <button type="submit" class="text-purple-600 hover:text-purple-900 mr-3">
-                                                        <i class="fas fa-file-medical"></i> Final Assessment
-                                                    </button>
-                                                </form>
-                                            <?php endif; ?>
+                                            <button onclick="openActionModal('approve', <?php echo $appointment['appointment_id']; ?>, '<?php echo $appointment['appointment_type']; ?>')"
+                                                    class="text-green-600 hover:text-green-900 mr-3">
+                                                Approve
+                                            </button>
+                                            <button onclick="openActionModal('reject', <?php echo $appointment['appointment_id']; ?>, '<?php echo $appointment['appointment_type']; ?>')"
+                                                    class="text-red-600 hover:text-red-900">
+                                                Reject
+                                            </button>
+                                        <?php elseif ($appointment['status'] === 'scheduled'): ?>
+                                            <button onclick="openActionModal('complete', <?php echo $appointment['appointment_id']; ?>, '<?php echo $appointment['appointment_type']; ?>')"
+                                                    class="text-blue-600 hover:text-blue-900 mr-3">
+                                                Final Assessment
+                                            </button>
+                                            <button onclick="openActionModal('cancel', <?php echo $appointment['appointment_id']; ?>, '<?php echo $appointment['appointment_type']; ?>')"
+                                                    class="text-red-600 hover:text-red-900">
+                                                Cancel
+                                            </button>
+                                        <?php elseif ($appointment['status'] === 'cancelled'): ?>
+                                            <button onclick="showCancellationRemark(<?php echo $appointment['appointment_id']; ?>, '<?php echo $appointment['appointment_type']; ?>')"
+                                                    class="text-blue-600 hover:text-blue-900">
+                                                View Remark
+                                            </button>
+                                        <?php elseif ($appointment['status'] === 'completed'): ?>
+                                            <a href="medicalhistory.php?appointment_id=<?php echo $appointment['appointment_id']; ?>&type=<?php echo $appointment['appointment_type']; ?>"
+                                               class="text-blue-600 hover:text-blue-900">
+                                                View History
+                                            </a>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -409,76 +368,118 @@ $error = isset($_GET['error']) ? $_GET['error'] : null;
         </div>
     </div>
 
-    <!-- Remark Modal -->
-    <div id="remarkModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
-        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
-            <h2 class="text-lg font-semibold mb-4" id="remarkModalTitle">Add Remark</h2>
-            <textarea id="remarkInput" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4" rows="4" placeholder="Enter your remark here..."></textarea>
-            <div class="flex justify-end gap-2">
-                <button id="cancelRemarkBtn" class="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">Cancel</button>
-                <button id="submitRemarkBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Submit</button>
+    <!-- Action Modal -->
+    <div id="actionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4" id="modalTitle">Action</h3>
+                <form id="actionForm" method="POST">
+                    <input type="hidden" id="appointmentId" name="appointment_id">
+                    <input type="hidden" id="action" name="action">
+                    <input type="hidden" id="isGuest" name="is_guest">
+                    <div class="mb-4">
+                        <label for="remark" class="block text-sm font-medium text-gray-700">Remark</label>
+                        <textarea id="remark" name="remark" rows="4" 
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeActionModal()"
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                            Confirm
+                        </button>
+                    </div>
+                </form>
             </div>
-            <button id="closeRemarkModal" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+    </div>
+
+    <!-- View Remark Modal -->
+    <div id="remarkModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Cancellation Reason</h3>
+                <p id="remarkText" class="text-gray-700"></p>
+                <div class="mt-4 flex justify-end">
+                    <button onclick="closeRemarkModal()"
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                        Close
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-    let currentRemarkForm = null;
-    let currentAction = '';
+        function openActionModal(action, appointmentId, appointmentType) {
+            const modal = document.getElementById('actionModal');
+            const title = document.getElementById('modalTitle');
+            const form = document.getElementById('actionForm');
+            const isGuest = appointmentType === 'guest';
 
-    // Open modal on button click
-    Array.from(document.getElementsByClassName('open-remark-modal')).forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            currentRemarkForm = this.closest('form');
-            currentAction = this.getAttribute('data-action');
-            document.getElementById('remarkModalTitle').textContent = currentAction === 'cancel' ? 'Cancel Appointment Remark' : 'Reject Appointment Remark';
-            document.getElementById('remarkInput').value = '';
-            document.getElementById('remarkModal').classList.remove('hidden');
-            document.getElementById('remarkInput').focus();
-        });
-    });
-
-    // Close modal
-    function closeRemarkModal() {
-        document.getElementById('remarkModal').classList.add('hidden');
-        currentRemarkForm = null;
-    }
-    document.getElementById('closeRemarkModal').onclick = closeRemarkModal;
-    document.getElementById('cancelRemarkBtn').onclick = closeRemarkModal;
-
-    // Submit modal
-    function submitRemark() {
-        if (!currentRemarkForm) {
-            alert('No form found to submit the remark.');
-            closeRemarkModal();
-            return;
-        }
-        const remark = document.getElementById('remarkInput').value.trim();
-        if (!remark) {
-            alert('Please enter a remark.');
-            return;
-        }
-        const remarkInput = currentRemarkForm.querySelector('input[name="remark"]');
-        if (remarkInput) {
-            remarkInput.value = remark;
-            currentRemarkForm.submit();
-        } else {
-            alert('Error: Could not find remark input field.');
-        }
-        closeRemarkModal();
-    }
-    document.getElementById('submitRemarkBtn').onclick = submitRemark;
-
-    // Allow Enter+Ctrl to submit
-    const remarkInput = document.getElementById('remarkInput');
-    if (remarkInput) {
-        remarkInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.ctrlKey) {
-                submitRemark();
+            // Set modal title based on action
+            switch(action) {
+                case 'approve':
+                    title.textContent = 'Approve Appointment';
+                    break;
+                case 'reject':
+                    title.textContent = 'Reject Appointment';
+                    break;
+                case 'complete':
+                    title.textContent = 'Final Assessment';
+                    // Submit the form to handle the redirection server-side
+                    document.getElementById('appointmentId').value = appointmentId;
+                    document.getElementById('action').value = action;
+                    document.getElementById('isGuest').value = isGuest;
+                    form.submit();
+                    return;
+                case 'cancel':
+                    title.textContent = 'Cancel Appointment';
+                    break;
             }
-        });
-    }
+
+            // Set form values
+            document.getElementById('appointmentId').value = appointmentId;
+            document.getElementById('action').value = action;
+            document.getElementById('isGuest').value = isGuest;
+
+            // Show modal
+            modal.classList.remove('hidden');
+        }
+
+        function closeActionModal() {
+            document.getElementById('actionModal').classList.add('hidden');
+            document.getElementById('actionForm').reset();
+        }
+
+        function showCancellationRemark(appointmentId, appointmentType) {
+            const isGuest = appointmentType === 'guest';
+            const table = isGuest ? 'guest_appointments' : 'appointments';
+            const idField = isGuest ? 'guest_appointment_id' : 'appointment_id';
+
+            // Fetch the remark from the server
+            fetch(`get_remark.php?appointment_id=${appointmentId}&type=${appointmentType}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('remarkText').textContent = data.remark || 'No reason provided';
+                        document.getElementById('remarkModal').classList.remove('hidden');
+                    } else {
+                        alert('Failed to fetch cancellation reason');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while fetching the cancellation reason');
+                });
+        }
+
+        function closeRemarkModal() {
+            document.getElementById('remarkModal').classList.add('hidden');
+        }
     </script>
 </body>
 </html> 

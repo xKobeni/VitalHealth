@@ -3,66 +3,76 @@ require_once 'includes/session.php';
 require_once '../config/database.php';
 checkAdminSession();
 
-// Get total patients count
-$patients_query = "SELECT COUNT(*) as total FROM patients";
-$patients_result = $conn->query($patients_query);
-$total_patients = $patients_result->fetch_assoc()['total'];
+// Get current date and time
+$current_date = date('Y-m-d');
+$current_month = date('Y-m');
 
-// Get total doctors count
-$doctors_query = "SELECT COUNT(*) as total FROM doctors";
-$doctors_result = $conn->query($doctors_query);
-$total_doctors = $doctors_result->fetch_assoc()['total'];
+// Get total counts
+$total_doctors_query = "SELECT COUNT(*) as count FROM doctors";
+$total_patients_query = "SELECT COUNT(*) as count FROM patients";
+$total_appointments_query = "SELECT COUNT(*) as count FROM appointments WHERE appointment_date = ?";
+$total_departments_query = "SELECT COUNT(DISTINCT department) as count FROM doctors";
 
-// Get total appointments count
-$appointments_query = "SELECT COUNT(*) as total FROM appointments";
-$appointments_result = $conn->query($appointments_query);
-$total_appointments = $appointments_result->fetch_assoc()['total'];
+$total_doctors = $conn->query($total_doctors_query)->fetch_assoc()['count'];
+$total_patients = $conn->query($total_patients_query)->fetch_assoc()['count'];
+$stmt = $conn->prepare($total_appointments_query);
+$stmt->bind_param("s", $current_date);
+$stmt->execute();
+$total_appointments = $stmt->get_result()->fetch_assoc()['count'];
+$total_departments = $conn->query($total_departments_query)->fetch_assoc()['count'];
 
-// Get today's appointments count
-$today_appointments_query = "SELECT COUNT(*) as total FROM appointments WHERE DATE(appointment_date) = CURDATE()";
-$today_appointments_result = $conn->query($today_appointments_query);
-$today_appointments = $today_appointments_result->fetch_assoc()['total'];
+// Get today's appointments with status
+$today_appointments_query = "SELECT 
+                           a.*, 
+                           p.full_name as patient_name,
+                           d.full_name as doctor_name,
+                           d.department
+                           FROM appointments a
+                           JOIN patients p ON a.patient_id = p.patient_id
+                           JOIN doctors d ON a.doctor_id = d.doctor_id
+                           WHERE a.appointment_date = ?
+                           ORDER BY a.appointment_time";
+$stmt = $conn->prepare($today_appointments_query);
+$stmt->bind_param("s", $current_date);
+$stmt->execute();
+$today_appointments = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// Get monthly appointment trends for the last 6 months
-$monthly_appointments_query = "SELECT 
-    DATE_FORMAT(appointment_date, '%Y-%m') as month,
-    COUNT(*) as count
-    FROM appointments 
-    WHERE appointment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-    GROUP BY DATE_FORMAT(appointment_date, '%Y-%m')
-    ORDER BY month";
-$monthly_appointments_result = $conn->query($monthly_appointments_query);
-$monthly_appointments_data = [];
-$monthly_appointments_labels = [];
-while($row = $monthly_appointments_result->fetch_assoc()) {
-    $monthly_appointments_data[] = $row['count'];
-    $monthly_appointments_labels[] = date('M Y', strtotime($row['month'] . '-01'));
-}
+// Get department-wise appointment distribution
+$department_stats_query = "SELECT 
+                         d.department,
+                         COUNT(a.appointment_id) as total_appointments,
+                         SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) as completed,
+                         SUM(CASE WHEN a.status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
+                         FROM doctors d
+                         LEFT JOIN appointments a ON d.doctor_id = a.doctor_id 
+                         AND a.appointment_date = ?
+                         GROUP BY d.department";
+$stmt = $conn->prepare($department_stats_query);
+$stmt->bind_param("s", $current_date);
+$stmt->execute();
+$department_stats = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Get recent patient registrations
+$recent_patients_query = "SELECT * FROM patients ORDER BY patient_id DESC LIMIT 5";
+$recent_patients = $conn->query($recent_patients_query)->fetch_all(MYSQLI_ASSOC);
 
 // Get appointment status distribution
-$appointment_status_query = "SELECT status, COUNT(*) as count FROM appointments GROUP BY status";
-$appointment_status_result = $conn->query($appointment_status_query);
-$appointment_status_data = [];
-$appointment_status_labels = [];
-while($row = $appointment_status_result->fetch_assoc()) {
-    $appointment_status_data[] = $row['count'];
-    $appointment_status_labels[] = ucfirst($row['status']);
-}
+$status_distribution_query = "SELECT 
+                            status,
+                            COUNT(*) as count,
+                            ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM appointments WHERE appointment_date = ?), 1) as percentage
+                            FROM appointments 
+                            WHERE appointment_date = ?
+                            GROUP BY status";
+$stmt = $conn->prepare($status_distribution_query);
+$stmt->bind_param("ss", $current_date, $current_date);
+$stmt->execute();
+$status_distribution = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// Get doctor workload distribution
-$doctor_workload_query = "SELECT d.full_name, COUNT(a.appointment_id) as appointment_count 
-    FROM doctors d 
-    LEFT JOIN appointments a ON d.doctor_id = a.doctor_id 
-    GROUP BY d.doctor_id 
-    ORDER BY appointment_count DESC 
-    LIMIT 5";
-$doctor_workload_result = $conn->query($doctor_workload_query);
-$doctor_names = [];
-$doctor_appointments = [];
-while($row = $doctor_workload_result->fetch_assoc()) {
-    $doctor_names[] = $row['full_name'];
-    $doctor_appointments[] = $row['appointment_count'];
-}
+// Get recent doctors
+$recent_doctors_query = "SELECT * FROM doctors ORDER BY doctor_id DESC LIMIT 5";
+$recent_doctors = $conn->query($recent_doctors_query)->fetch_all(MYSQLI_ASSOC);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -73,6 +83,30 @@ while($row = $doctor_workload_result->fetch_assoc()) {
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+        }
+        .card-hover {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .stat-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 300px;
+            width: 100%;
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
     <?php include 'navbar.php'; ?>
@@ -80,14 +114,31 @@ while($row = $doctor_workload_result->fetch_assoc()) {
     
     <main class="ml-64 p-8">
         <div class="max-w-7xl mx-auto">
-            <h1 class="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
-            
-            <!-- Stats Grid -->
+            <!-- Header Section -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
+                <p class="text-gray-600 mt-2">Welcome back! Here's what's happening today.</p>
+            </div>
+
+            <!-- Summary Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <!-- Total Patients -->
-                <div class="bg-white rounded-lg shadow p-6">
+                <!-- Total Doctors -->
+                <div class="stat-card card-hover">
                     <div class="flex items-center">
                         <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                            <span class="material-icons">medical_services</span>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-500">Active Doctors</p>
+                            <p class="text-2xl font-semibold text-gray-800"><?php echo $total_doctors; ?></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Patients -->
+                <div class="stat-card card-hover">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100 text-green-600">
                             <span class="material-icons">people</span>
                         </div>
                         <div class="ml-4">
@@ -96,76 +147,145 @@ while($row = $doctor_workload_result->fetch_assoc()) {
                         </div>
                     </div>
                 </div>
-                
-                <!-- Total Doctors -->
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-green-100 text-green-600">
-                            <span class="material-icons">local_hospital</span>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm text-gray-500">Total Doctors</p>
-                            <p class="text-2xl font-semibold text-gray-800"><?php echo $total_doctors; ?></p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Appointments -->
-                <div class="bg-white rounded-lg shadow p-6">
+
+                <!-- Today's Appointments -->
+                <div class="stat-card card-hover">
                     <div class="flex items-center">
                         <div class="p-3 rounded-full bg-purple-100 text-purple-600">
                             <span class="material-icons">calendar_today</span>
                         </div>
                         <div class="ml-4">
                             <p class="text-sm text-gray-500">Today's Appointments</p>
-                            <p class="text-2xl font-semibold text-gray-800"><?php echo $today_appointments; ?></p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Total Appointments -->
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
-                            <span class="material-icons">event_note</span>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm text-gray-500">Total Appointments</p>
                             <p class="text-2xl font-semibold text-gray-800"><?php echo $total_appointments; ?></p>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Appointment Trends -->
-            <div class="bg-white rounded-lg shadow mb-8">
-                <div class="p-6 border-b">
-                    <h2 class="text-lg font-semibold text-gray-800">Appointment Trends</h2>
-                </div>
-                <div class="p-6">
-                    <canvas id="appointmentTrendsChart" height="100"></canvas>
+
+                <!-- Total Departments -->
+                <div class="stat-card card-hover">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-indigo-100 text-indigo-600">
+                            <span class="material-icons">business</span>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-500">Departments</p>
+                            <p class="text-2xl font-semibold text-gray-800"><?php echo $total_departments; ?></p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Statistics Charts -->
+            <!-- Main Content Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                <!-- Appointment Status Distribution -->
-                <div class="bg-white rounded-lg shadow">
-                    <div class="p-6 border-b">
-                        <h2 class="text-lg font-semibold text-gray-800">Appointment Status Distribution</h2>
+                <!-- Today's Appointments -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-semibold text-gray-800">Today's Appointments</h2>
+                        <a href="appointments.php" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View All</a>
                     </div>
-                    <div class="p-6">
-                        <canvas id="appointmentStatusChart"></canvas>
+                    <div class="overflow-x-auto">
+                        <?php if (empty($today_appointments)): ?>
+                            <div class="text-center py-8">
+                                <span class="material-icons text-gray-400 text-4xl mb-2">event_busy</span>
+                                <p class="text-gray-500 text-lg">No appointments scheduled for today</p>
+                            </div>
+                        <?php else: ?>
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <?php foreach($today_appointments as $appointment): ?>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900">
+                                                <?php echo date('g:i A', strtotime($appointment['appointment_time'])); ?>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($appointment['patient_name']); ?></div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900"><?php echo htmlspecialchars($appointment['doctor_name']); ?></div>
+                                            <div class="text-xs text-gray-500"><?php echo htmlspecialchars($appointment['department']); ?></div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                <?php echo match($appointment['status']) {
+                                                    'completed' => 'bg-green-100 text-green-800',
+                                                    'cancelled' => 'bg-red-100 text-red-800',
+                                                    'no-show' => 'bg-yellow-100 text-yellow-800',
+                                                    default => 'bg-blue-100 text-blue-800'
+                                                }; ?>">
+                                                <?php echo ucfirst($appointment['status']); ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- Doctor Workload -->
-                <div class="bg-white rounded-lg shadow">
-                    <div class="p-6 border-b">
-                        <h2 class="text-lg font-semibold text-gray-800">Top 5 Doctors by Appointments</h2>
+                <!-- Department Performance -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-6">Department Performance</h2>
+                    <div class="chart-container">
+                        <canvas id="departmentChart"></canvas>
                     </div>
-                    <div class="p-6">
-                        <canvas id="doctorWorkloadChart"></canvas>
+                </div>
+
+                <!-- Recent Patients -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-semibold text-gray-800">Recent Patients</h2>
+                        <a href="patients.php" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View All</a>
+                    </div>
+                    <div class="space-y-4">
+                        <?php foreach($recent_patients as $patient): ?>
+                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($patient['full_name']); ?></h3>
+                                <p class="text-xs text-gray-500">Patient ID: <?php echo $patient['patient_id']; ?></p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">Gender</p>
+                                <p class="text-sm font-medium text-gray-900">
+                                    <?php echo htmlspecialchars($patient['gender'] ?? 'N/A'); ?>
+                                </p>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <!-- Recent Doctors -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-semibold text-gray-800">Recent Doctors</h2>
+                        <a href="doctors.php" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View All</a>
+                    </div>
+                    <div class="space-y-4">
+                        <?php foreach($recent_doctors as $doctor): ?>
+                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($doctor['full_name']); ?></h3>
+                                <p class="text-xs text-gray-500"><?php echo htmlspecialchars($doctor['department']); ?></p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">Doctor ID</p>
+                                <p class="text-sm font-medium text-gray-900">
+                                    <?php echo $doctor['doctor_id']; ?>
+                                </p>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>
@@ -173,81 +293,40 @@ while($row = $doctor_workload_result->fetch_assoc()) {
     </main>
 
     <script>
-        // Appointment Trends Chart
-        const trendsCtx = document.getElementById('appointmentTrendsChart').getContext('2d');
-        new Chart(trendsCtx, {
-            type: 'line',
-            data: {
-                labels: <?php echo json_encode($monthly_appointments_labels); ?>,
-                datasets: [{
-                    label: 'Monthly Appointments',
-                    data: <?php echo json_encode($monthly_appointments_data); ?>,
-                    borderColor: 'rgb(59, 130, 246)',
-                    tension: 0.1,
-                    fill: false
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
-                        }
-                    }
-                }
-            }
-        });
+        // Chart.js global defaults
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        Chart.defaults.plugins.tooltip.padding = 12;
+        Chart.defaults.plugins.tooltip.cornerRadius = 8;
+        Chart.defaults.plugins.legend.labels.padding = 20;
+        Chart.defaults.plugins.legend.labels.usePointStyle = true;
 
-        // Appointment Status Distribution Chart
-        const statusCtx = document.getElementById('appointmentStatusChart').getContext('2d');
-        new Chart(statusCtx, {
-            type: 'pie',
-            data: {
-                labels: <?php echo json_encode($appointment_status_labels); ?>,
-                datasets: [{
-                    data: <?php echo json_encode($appointment_status_data); ?>,
-                    backgroundColor: [
-                        'rgb(59, 130, 246)',
-                        'rgb(16, 185, 129)',
-                        'rgb(245, 158, 11)',
-                        'rgb(239, 68, 68)'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-
-        // Doctor Workload Chart
-        const workloadCtx = document.getElementById('doctorWorkloadChart').getContext('2d');
-        new Chart(workloadCtx, {
+        // Department Performance Chart
+        const departmentCtx = document.getElementById('departmentChart').getContext('2d');
+        new Chart(departmentCtx, {
             type: 'bar',
             data: {
-                labels: <?php echo json_encode($doctor_names); ?>,
+                labels: <?php echo json_encode(array_column($department_stats, 'department')); ?>,
                 datasets: [{
-                    label: 'Appointments',
-                    data: <?php echo json_encode($doctor_appointments); ?>,
-                    backgroundColor: 'rgb(59, 130, 246)'
+                    label: 'Total Appointments',
+                    data: <?php echo json_encode(array_column($department_stats, 'total_appointments')); ?>,
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                }, {
+                    label: 'Completed',
+                    data: <?php echo json_encode(array_column($department_stats, 'completed')); ?>,
+                    backgroundColor: 'rgba(34, 197, 94, 0.8)'
+                }, {
+                    label: 'Cancelled',
+                    data: <?php echo json_encode(array_column($department_stats, 'cancelled')); ?>,
+                    backgroundColor: 'rgba(239, 68, 68, 0.8)'
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: false
+                        position: 'top'
                     }
                 },
                 scales: {
@@ -255,6 +334,15 @@ while($row = $doctor_workload_result->fetch_assoc()) {
                         beginAtZero: true,
                         ticks: {
                             stepSize: 1
+                        },
+                        grid: {
+                            display: true,
+                            drawBorder: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
                         }
                     }
                 }

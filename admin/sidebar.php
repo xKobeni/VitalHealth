@@ -17,7 +17,6 @@
                 <li><a href="schedule.php" class="flex items-center px-6 py-2 text-gray-700 hover:bg-blue-50 rounded transition"><span class="material-icons mr-3">event</span>Schedule</a></li>
                 <li><a href="appointments.php" class="flex items-center px-6 py-2 text-gray-700 hover:bg-blue-50 rounded transition"><span class="material-icons mr-3">calendar_today</span>Appointment</a></li>
                 <li><a href="reports.php" class="flex items-center px-6 py-2 text-gray-700 hover:bg-blue-50 rounded transition"><span class="material-icons mr-3">assessment</span>Report</a></li>
-                <li><a href="assistance.php" class="flex items-center px-6 py-2 text-gray-700 hover:bg-blue-50 rounded transition"><span class="material-icons mr-3">support_agent</span>Assistance</a></li>
                 <li class="mt-4 px-6 text-xs text-gray-400 uppercase">Others</li>
                 <li><a href="logout.php" class="flex items-center px-6 py-2 text-red-600 hover:bg-red-50 rounded transition"><span class="material-icons mr-3">logout</span>Log Out</a></li>
             </ul>

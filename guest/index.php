@@ -18,7 +18,7 @@ $department = isset($_GET['department']) ? $_GET['department'] : '';
 $sql = "SELECT d.*, u.email 
         FROM doctors d 
         JOIN users u ON d.user_id = u.user_id 
-        WHERE 1=1";
+        WHERE d.is_active = 1";
 
 if (!empty($search)) {
     $sql .= " AND (d.full_name LIKE ? OR d.department LIKE ?)";
@@ -68,9 +68,9 @@ $result = $stmt->get_result();
                     </a>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <a href="../index.php" class="text-gray-600 hover:text-gray-900">Home</a>
+                    <a href="../landingpage.php" class="text-gray-600 hover:text-gray-900">Home</a>
                     <a href="index.php" class="text-blue-600 font-medium">Doctors</a>
-                    <a href="../login.php" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">Login</a>
+                    <a href="../index.php" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">Login</a>
                 </div>
             </div>
         </div>

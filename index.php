@@ -19,19 +19,25 @@ if (isset($_POST['submit'])) {
         
         // Verify password
         if (password_verify($password, $logged_in['password'])) {
-            session_start();
-            $_SESSION['userid'] = $logged_in['user_id'];
-            
-            // Redirect based on role
-            if ($logged_in['role'] === 'patient') {
-                header('Location: /Healthcare/patient/patientdashboard.php');
-            } else if ($logged_in['role'] === 'doctor') {
+            // For doctors, check if they are active
+            if ($logged_in['role'] === 'doctor') {
+                session_start();
+                $_SESSION['userid'] = $logged_in['user_id'];
                 header('Location: /Healthcare/doctor/doctordashboard.php');
+                exit;
             } else {
-                $_SESSION['email'] = $email;
-                header('Location: /Healthcare/dashboard.php');
+                session_start();
+                $_SESSION['userid'] = $logged_in['user_id'];
+                
+                // Redirect based on role
+                if ($logged_in['role'] === 'patient') {
+                    header('Location: /Healthcare/patient/patientdashboard.php');
+                } else {
+                    $_SESSION['email'] = $email;
+                    header('Location: /Healthcare/dashboard.php');
+                }
+                exit;
             }
-            exit;
         } else {
             $error = "Invalid email or password";
         }
@@ -69,6 +75,10 @@ if (isset($_POST['submit'])) {
         .toast.error {
             border-left: 4px solid #ef4444;
         }
+        .toast.deactivated {
+            border-left: 4px solid #f59e0b;
+            background-color: #fffbeb;
+        }
     </style>
 </head>
 
@@ -80,10 +90,19 @@ if (isset($_POST['submit'])) {
             <p class="text-center text-neutral-600 mb-4">Welcome! Please enter your credentials</p>
 
             <?php if (isset($error)): ?>
-                <div id="errorToast" class="toast error">
+                <div id="errorToast" class="toast <?php echo isset($error_details) ? 'deactivated' : 'error'; ?>">
                     <div class="flex items-center">
-                        <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
-                        <span><?= htmlspecialchars($error) ?></span>
+                        <?php if (isset($error_details)): ?>
+                            <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>
+                        <?php else: ?>
+                            <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+                        <?php endif; ?>
+                        <div>
+                            <div class="font-semibold"><?= htmlspecialchars($error) ?></div>
+                            <?php if (isset($error_details)): ?>
+                                <div class="text-sm text-gray-600"><?= htmlspecialchars($error_details) ?></div>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             <?php endif; ?>
@@ -113,7 +132,7 @@ if (isset($_POST['submit'])) {
                 </button>
             </form>
             <p class="text-center mt-4">
-                Don't have an account? <a href="signup.php" class="text-green-600 font-semibold hover:text-green-700">Sign Up</a>
+                <a href="landingpage.php" class="text-green-600 font-semibold hover:text-green-700">Back to Homepage</a>
             </p>
         </div>
     </div>

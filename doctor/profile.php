@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $full_name = filter_input(INPUT_POST, 'full_name', FILTER_SANITIZE_STRING);
     $department = filter_input(INPUT_POST, 'department', FILTER_SANITIZE_STRING);
     $contact_number = filter_input(INPUT_POST, 'contact_number', FILTER_SANITIZE_STRING);
+    $license_number = filter_input(INPUT_POST, 'license_number', FILTER_SANITIZE_STRING);
     $current_password = $_POST['current_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
@@ -44,10 +45,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $update_sql = "UPDATE doctors SET 
                       full_name = ?, 
                       department = ?, 
-                      contact_number = ? 
+                      contact_number = ?,
+                      license_number = ?
                       WHERE doctor_id = ?";
         $update_stmt = $conn->prepare($update_sql);
-        $update_stmt->bind_param("sssi", $full_name, $department, $contact_number, $id);
+        $update_stmt->bind_param("sssi", $full_name, $department, $contact_number, $license_number, $id);
         $update_stmt->execute();
 
         // If password change is requested
@@ -139,6 +141,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
                             <input type="tel" value="<?php echo htmlspecialchars($doctor['contact_number']); ?>" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50" disabled>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">License Number</label>
+                            <input type="text" value="<?php echo htmlspecialchars($doctor['license_number']); ?>" 
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50" disabled>
                         </div>
                     </div>

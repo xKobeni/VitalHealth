@@ -16,6 +16,32 @@ if (!isset($_SESSION['userid'])) {
 $doctor_id = getDoctorId($conn, $_SESSION['userid']);
 $name = getDoctorName($conn, $_SESSION['userid']);
 
+// Check if doctor is approved
+$stmt = $conn->prepare("SELECT * FROM doctors WHERE doctor_id = ?");
+$stmt->bind_param("i", $doctor_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows === 0) {
+    // No doctor profile yet — this shouldn't happen, but just in case
+    header("Location: create_profile.php");
+    exit();
+}
+
+$doctor = $result->fetch_assoc();
+
+// Redirect to profile completion if required fields are empty
+if (empty($doctor['full_name']) || empty($doctor['department']) || empty($doctor['license_number']) || empty($doctor['contact_number'])) {
+    header("Location: create_profile.php");
+    exit();
+}
+
+if ((int)$doctor['is_approved'] === 0) {
+    header("Location: wait_approval.php");
+    exit();
+}
+
+
 // Get today's date for filtering
 $today = date('Y-m-d');
 
@@ -299,19 +325,6 @@ $hasPendingRequests = !empty($pending_requests);
                         Scheduled for future dates
                     </div>
                 </div>
-
-                <div class="border border-neutral-300 bg-white rounded-md shadow-lg p-6">
-                    <div class="flex items-center mb-4">
-                        <div class="p-3 bg-yellow-100 rounded-full">
-                            <i class="fas fa-user-clock text-yellow-500 text-2xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <h2 class="font-semibold text-lg text-gray-700">Pending Requests</h2>
-                            <p class="text-3xl font-bold text-gray-800"><?php echo $pending_count; ?></p>
-                            <p class="text-sm text-gray-500">Awaiting approval</p>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="w-2/3">
@@ -375,16 +388,18 @@ $hasPendingRequests = !empty($pending_requests);
                                 </div>
 
                                 <div class="flex gap-3">
-                                    <?php if ($appointment['appointment_type'] === 'regular'): ?>
-                                        <form action="medical-history.php" method="POST" class="flex-1">
-                                            <input type="hidden" name="appointmentid" value="<?php echo $appointment['patient_id']; ?>">
+                                    <?php if ($appointment['status'] === 'scheduled' || $appointment['status'] === 'confirmed'): ?>
+                                        <form action="medicalhistory.php" method="POST" class="flex-1">
+                                            <input type="hidden" name="appointmentid" value="<?php echo $appointment['appointment_type'] === 'regular' ? $appointment['patient_id'] : $appointment['appointment_id']; ?>">
+                                            <input type="hidden" name="is_guest" value="<?php echo $appointment['appointment_type'] === 'guest' ? '1' : '0'; ?>">
                                             <button type="submit" class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center justify-center">
                                                 <i class="fas fa-file-medical-alt mr-2"></i> Medical History
                                             </button>
                                         </form>
                                         <form action="finalassessment.php" method="GET" class="flex-1">
-                                            <input type="hidden" name="patientid" value="<?php echo $appointment['patient_id']; ?>">
+                                            <input type="hidden" name="patientid" value="<?php echo $appointment['appointment_type'] === 'regular' ? $appointment['patient_id'] : $appointment['appointment_id']; ?>">
                                             <input type="hidden" name="appointmentid" value="<?php echo $appointment['appointment_id']; ?>">
+                                            <input type="hidden" name="is_guest" value="<?php echo $appointment['appointment_type'] === 'guest' ? '1' : '0'; ?>">
                                             <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center">
                                                 <i class="fas fa-stethoscope mr-2"></i> Final Assessment
                                             </button>

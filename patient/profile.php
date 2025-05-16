@@ -119,11 +119,6 @@ $error = '';
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50" readonly>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Address</label>
-                        <textarea rows="3" 
-                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50" readonly><?php echo htmlspecialchars($patient['address']); ?></textarea>
-                    </div>
-                    <div>
                         <label class="block text-sm font-medium text-gray-700">Date of Birth</label>
                         <input type="date" value="<?php echo htmlspecialchars($patient['date_of_birth']); ?>" 
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50" readonly>
